@@ -1,1 +1,0 @@
-# Generador-de-Informes-de-Laboratorio
