@@ -4,7 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Generador de Informes de Laboratorio</title>
+
+<!-- Librerías externas -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
 <style>
   /* ============================================================
      TEMA OSCURO GLOBAL
@@ -329,7 +333,7 @@
   .meta-lbl{
     font-weight:700;
     color:#222;
-    flex:0 0 40mm;          /* ancho ampliado para etiquetas académicas largas */
+    flex:0 0 40mm;
     white-space:nowrap;
   }
   .meta-val{
@@ -420,6 +424,25 @@
     margin-top:.6mm;
   }
 
+  /* ============================================================
+     CURVA GRANULOMÉTRICA (NUEVA SECCIÓN)
+     ============================================================ */
+  .doc-grafica{
+    width:100%;
+    height:75mm;                 /* altura controlada para A4 */
+    border:.6px solid #333;
+    border-radius:1mm;
+    padding:2mm;
+    background:#fff;
+    position:relative;
+    page-break-inside:avoid;
+  }
+  .doc-grafica canvas{
+    width:100% !important;
+    height:100% !important;
+    display:block;
+  }
+
   /* --- Galería --- */
   .doc-galeria{
     display:grid;
@@ -465,7 +488,7 @@
     color:#111;
   }
 
-  /* --- Firmas (al pie de la hoja) --- */
+  /* --- Firmas --- */
   .doc-firmas{
     margin-top:auto;
     padding-top:12mm;
@@ -491,7 +514,8 @@
   .doc-table tr,
   .foto-item,
   .res-card,
-  .doc-head{page-break-inside:avoid;}
+  .doc-head,
+  .doc-grafica{page-break-inside:avoid;}
 
   /* ============================================================
      RESPONSIVE
@@ -532,7 +556,7 @@
       <button class="btn btn-ghost" id="btnDemo" style="margin-top:9px;">Cargar datos de ejemplo (demo)</button>
     </div>
 
-    <!-- ================= METADATOS DEL INFORME ================= -->
+    <!-- Metadatos -->
     <div class="panel-block">
       <h3>Metadatos del informe</h3>
 
@@ -566,7 +590,6 @@
         <input class="input" type="date" data-meta="fecha">
       </label>
     </div>
-    <!-- ========================================================= -->
 
     <!-- Medios -->
     <div class="panel-block">
@@ -617,7 +640,7 @@
           </div>
         </header>
 
-        <!-- ================= METADATOS ACADÉMICOS ================= -->
+        <!-- Metadatos académicos -->
         <section class="doc-meta">
           <div class="meta-row"><span class="meta-lbl">Tema de la Práctica:</span><span class="meta-val" id="docProyecto">—</span></div>
           <div class="meta-row"><span class="meta-lbl">Profesor(a):</span><span class="meta-val" id="docCliente">—</span></div>
@@ -625,23 +648,33 @@
           <div class="meta-row"><span class="meta-lbl">Estudiante(s) y Matrícula:</span><span class="meta-val" id="docTecnico">—</span></div>
           <div class="meta-row full"><span class="meta-lbl">Descripción del Material:</span><span class="meta-val" id="docMaterial">—</span></div>
         </section>
-        <!-- ======================================================== -->
 
-        <!-- Tabla -->
+        <!-- 1. Tabla -->
         <section class="doc-section">
           <h2>1. Datos del ensayo granulométrico</h2>
           <div id="docTablaWrap"></div>
         </section>
 
-        <!-- Resultados -->
+        <!-- 2. Resultados -->
         <section class="doc-section">
           <h2>2. Resultados</h2>
           <div class="doc-res" id="docResultados"></div>
         </section>
 
-        <!-- Imágenes -->
+        <!-- ============================================================
+             3. CURVA GRANULOMÉTRICA (NUEVA SECCIÓN)
+             ============================================================ -->
+        <section class="doc-section" id="docSeccionGrafica">
+          <h2>3. Curva Granulométrica</h2>
+          <div class="doc-grafica" id="graficaContenedor">
+            <canvas id="graficaGranulometria"></canvas>
+          </div>
+        </section>
+        <!-- ============================================================ -->
+
+        <!-- 4. Imágenes -->
         <section class="doc-section" id="docSeccionFotos">
-          <h2>3. Registro fotográfico</h2>
+          <h2>4. Registro fotográfico</h2>
           <div class="doc-galeria" id="docGaleria"></div>
         </section>
 
@@ -694,6 +727,9 @@
     imagenes: [],
     observaciones: ''
   };
+
+  /** Instancia activa del gráfico (para poder destruirla y redibujar) */
+  let chartGranulometria = null;
 
   /* ============================================================
      UTILIDADES
@@ -917,6 +953,152 @@
     }).join('');
   }
 
+  /* ============================================================
+     RENDERIZADO DE LA CURVA GRANULOMÉTRICA (Chart.js)
+     ============================================================ */
+  function renderGrafica(){
+    const seccion    = $('docSeccionGrafica');
+    const contenedor = $('graficaContenedor');
+    const canvas     = $('graficaGranulometria');
+
+    // Si Chart.js no cargó, no rompemos la app
+    if (typeof Chart === 'undefined'){
+      seccion.style.display = 'none';
+      return;
+    }
+
+    // 1) Filtrar filas: descartar "Fondo" (sin abertura) y sin % Pasa válido
+    const puntos = state.filas
+      .filter(f =>
+        f.abertura !== null && f.abertura !== undefined &&
+        isFinite(f.abertura) && f.abertura > 0 &&
+        f.pasa !== null && f.pasa !== undefined && isFinite(f.pasa)
+      )
+      .sort((a, b) => b.abertura - a.abertura);   // de mayor a menor abertura
+
+    // 2) Si no hay datos válidos, ocultar la sección y destruir el gráfico anterior
+    if (!puntos.length){
+      seccion.style.display = 'none';
+      if (chartGranulometria){ chartGranulometria.destroy(); chartGranulometria = null; }
+      return;
+    }
+    seccion.style.display = '';
+
+    // 3) Destruir gráfico previo para evitar fugas y canvas duplicados
+    if (chartGranulometria){
+      chartGranulometria.destroy();
+      chartGranulometria = null;
+    }
+
+    // 4) Preparar arreglos de datos
+    const aperturas = puntos.map(p => Number(p.abertura));
+    const pasaPct   = puntos.map(p => Number(p.pasa));
+
+    // 5) Ticks "bonitos" para el eje logarítmico (mallas estándar ASTM)
+    const TICKS_LOG = [0.075, 0.15, 0.3, 0.6, 1.18, 2.36, 4.75, 9.5, 12.5, 19, 25, 37.5, 50, 75, 100];
+
+    // 6) Crear gráfico
+    chartGranulometria = new Chart(canvas.getContext('2d'), {
+      type: 'line',
+      data: {
+        labels: aperturas,                       // eje X = abertura en mm
+        datasets: [{
+          label: '% Que Pasa',
+          data: pasaPct,                         // eje Y = % que pasa
+          borderColor: '#0a2540',                // azul marino oscuro
+          backgroundColor: '#0a2540',
+          borderWidth: 1.6,
+          pointRadius: 3,
+          pointHoverRadius: 4,
+          pointBackgroundColor: '#0a2540',
+          pointBorderColor: '#0a2540',
+          pointBorderWidth: 1,
+          tension: 0,                            // líneas rectas entre puntos
+          fill: false,
+          clip: false
+        }]
+      },
+      options: {
+        /* === CRÍTICO PARA html2pdf.js === */
+        animation: false,                        // sin animación → captura instantánea
+        animations: false,
+        responsive: true,
+        maintainAspectRatio: false,
+        devicePixelRatio: 2,                     // mayor nitidez en el PDF
+
+        layout: { padding: { top: 4, right: 6, bottom: 2, left: 2 } },
+
+        plugins: {
+          legend: { display: false },
+          title:  { display: false },
+          tooltip:{ enabled: false }             // evita artefactos en la captura
+        },
+
+        scales: {
+          /* ---------- EJE X: Abertura (mm) — logarítmico e invertido ---------- */
+          x: {
+            type: 'logarithmic',
+            reverse: true,                       // mayor abertura a la izquierda
+            position: 'bottom',
+            title: {
+              display: true,
+              text: 'Abertura (mm)',
+              color: '#111',
+              font: { size: 10, weight: 'bold', family: 'Arial' },
+              padding: { top: 4 }
+            },
+            ticks: {
+              color: '#111',
+              font: { size: 8, family: 'Arial' },
+              autoSkip: false,
+              maxRotation: 0,
+              minRotation: 0,
+              callback: function(value){
+                // Solo mostrar mallas estándar (evita saturar el eje)
+                for (const t of TICKS_LOG){
+                  if (Math.abs(value - t) / t < 0.02) return String(t);
+                }
+                return null;
+              }
+            },
+            afterBuildTicks: function(axis){
+              // Forzar los ticks exactos dentro del rango visible
+              const min = axis.min, max = axis.max;
+              axis.ticks = TICKS_LOG
+                .filter(v => v >= min * 0.9 && v <= max * 1.05)
+                .map(v => ({ value: v }));
+            },
+            grid: { color: '#e0e0e0', lineWidth: .5 },
+            border: { color: '#333' }
+          },
+
+          /* ---------- EJE Y: % Que Pasa — lineal 0–100 ---------- */
+          y: {
+            type: 'linear',
+            min: 0,
+            max: 100,
+            position: 'left',
+            title: {
+              display: true,
+              text: '% Que Pasa',
+              color: '#111',
+              font: { size: 10, weight: 'bold', family: 'Arial' },
+              padding: { bottom: 4 }
+            },
+            ticks: {
+              color: '#111',
+              font: { size: 8, family: 'Arial' },
+              stepSize: 10,
+              callback: v => v + '%'
+            },
+            grid: { color: '#e0e0e0', lineWidth: .5 },
+            border: { color: '#333' }
+          }
+        }
+      }
+    });
+  }
+
   function renderGaleria(){
     const sec = $('docSeccionFotos');
     const gal = $('docGaleria');
@@ -950,6 +1132,7 @@
 
     renderTabla();
     renderResultados();
+    renderGrafica();      // ← NUEVO
     renderGaleria();
   }
 
@@ -984,7 +1167,6 @@
     el.className = 'hint' + (tipo ? ' ' + tipo : '');
   }
 
-  // Metadatos
   document.querySelectorAll('[data-meta]').forEach(el => {
     el.addEventListener('input', () => {
       state.meta[el.dataset.meta] = el.value;
@@ -992,13 +1174,11 @@
     });
   });
 
-  // Observaciones
   document.querySelector('[data-obs]').addEventListener('input', e => {
     state.observaciones = e.target.value;
     render();
   });
 
-  // Imágenes
   $('inFotos').addEventListener('change', e => {
     const files = Array.from(e.target.files || []);
     files.forEach(file => {
@@ -1112,6 +1292,11 @@
     }));
   }
 
+  /** Espera un frame para asegurar que Chart.js ya dibujó el canvas */
+  function esperarFrame(){
+    return new Promise(res => requestAnimationFrame(() => setTimeout(res, 60)));
+  }
+
   function setBotonesExportando(activo){
     [$('btnExportar'), $('btnExportarTop')].forEach(b => {
       if (!b) return;
@@ -1138,6 +1323,7 @@
 
     try {
       await esperarImagenes(el);
+      await esperarFrame();          // ← garantiza que la gráfica ya está dibujada
 
       const opciones = {
         margin: 0,
@@ -1154,7 +1340,7 @@
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
         pagebreak: {
           mode: ['css', 'legacy'],
-          avoid: ['tr', '.foto-item', '.res-card', '.doc-firmas', '.doc-head']
+          avoid: ['tr', '.foto-item', '.res-card', '.doc-firmas', '.doc-head', '.doc-grafica']
         }
       };
 
