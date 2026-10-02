@@ -1,0 +1,1200 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Generador de Informes de Laboratorio</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<style>
+  /* ============================================================
+     TEMA OSCURO GLOBAL
+     ============================================================ */
+  :root{
+    --bg:#0d1117;
+    --panel:#161b22;
+    --panel-2:#1c232c;
+    --panel-3:#11161d;
+    --border:#2a333f;
+    --border-soft:#232b35;
+    --text:#e6edf3;
+    --muted:#8b98a5;
+    --accent:#38bdf8;
+    --accent-hi:#7dd3fc;
+    --ok:#3fb950;
+    --err:#f85149;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:"Segoe UI",Roboto,system-ui,-apple-system,sans-serif;
+    display:flex;
+    flex-direction:column;
+    min-height:100vh;
+  }
+
+  /* ============================================================
+     BARRA SUPERIOR
+     ============================================================ */
+  .topbar{
+    height:58px;
+    flex:0 0 58px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:16px;
+    padding:0 20px;
+    background:linear-gradient(180deg,#161b22,#12171e);
+    border-bottom:1px solid var(--border);
+    z-index:10;
+  }
+  .brand{
+    display:flex;align-items:center;gap:10px;
+    font-size:15px;font-weight:600;letter-spacing:.2px;
+  }
+  .brand .dot{
+    width:10px;height:10px;border-radius:50%;
+    background:var(--accent);
+    box-shadow:0 0 12px var(--accent);
+  }
+  .brand small{color:var(--muted);font-weight:400;font-size:12px;}
+  .topbar .btn{width:auto;padding:9px 16px;font-size:12.5px;}
+
+  /* ============================================================
+     LAYOUT
+     ============================================================ */
+  .layout{
+    flex:1;
+    display:grid;
+    grid-template-columns:390px 1fr;
+    min-height:0;
+  }
+
+  /* ============================================================
+     PANEL DE CONTROLES (OSCURO)
+     ============================================================ */
+  .panel{
+    background:var(--panel);
+    border-right:1px solid var(--border);
+    overflow-y:auto;
+    padding:18px;
+    display:flex;
+    flex-direction:column;
+    gap:16px;
+  }
+  .panel::-webkit-scrollbar{width:9px;}
+  .panel::-webkit-scrollbar-track{background:var(--panel);}
+  .panel::-webkit-scrollbar-thumb{background:#2c3540;border-radius:5px;}
+  .panel::-webkit-scrollbar-thumb:hover{background:#3a4553;}
+
+  .panel-block{
+    background:var(--panel-2);
+    border:1px solid var(--border-soft);
+    border-radius:12px;
+    padding:15px;
+  }
+  .panel-block h3{
+    margin:0 0 12px;
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:1px;
+    color:var(--muted);
+    font-weight:700;
+  }
+
+  .field{display:block;margin-bottom:11px;}
+  .field:last-child{margin-bottom:0;}
+  .field span{
+    display:block;font-size:11px;color:var(--muted);
+    margin-bottom:5px;font-weight:500;
+  }
+  .input, textarea, select{
+    width:100%;
+    background:var(--panel-3);
+    border:1px solid var(--border);
+    border-radius:8px;
+    color:var(--text);
+    padding:9px 11px;
+    font-size:13px;
+    font-family:inherit;
+    transition:border-color .15s, box-shadow .15s;
+  }
+  .input::placeholder, textarea::placeholder{color:#55606d;}
+  .input:focus, textarea:focus{
+    outline:none;
+    border-color:var(--accent);
+    box-shadow:0 0 0 3px rgba(56,189,248,.14);
+  }
+  textarea{resize:vertical;min-height:110px;line-height:1.5;}
+  input[type="date"]{color-scheme:dark;}
+
+  /* Botones */
+  .btn{
+    width:100%;
+    border:none;
+    border-radius:9px;
+    padding:11px 14px;
+    font-size:13.5px;
+    font-weight:600;
+    font-family:inherit;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    transition:background .15s, transform .08s, opacity .15s;
+  }
+  .btn:active{transform:translateY(1px);}
+  .btn:disabled{opacity:.55;cursor:not-allowed;transform:none;}
+  .btn-primary{
+    background:#232b35;color:var(--text);
+    border:1px solid var(--border);
+  }
+  .btn-primary:hover:not(:disabled){background:#2c3641;}
+  .btn-accent{
+    background:var(--accent);color:#052435;
+    box-shadow:0 4px 16px rgba(56,189,248,.22);
+  }
+  .btn-accent:hover:not(:disabled){background:var(--accent-hi);}
+  .btn-ghost{
+    background:transparent;color:var(--muted);
+    border:1px dashed var(--border);
+    font-size:12px;padding:8px;
+  }
+  .btn-ghost:hover{color:var(--accent);border-color:var(--accent);}
+
+  .hint{
+    margin:9px 0 0;
+    font-size:11.5px;
+    color:var(--muted);
+    line-height:1.5;
+  }
+  .hint.ok{color:var(--ok);}
+  .hint.err{color:var(--err);}
+
+  /* Zona de archivos */
+  .file-drop{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:3px;
+    padding:18px 12px;
+    border:1.5px dashed var(--border);
+    border-radius:10px;
+    cursor:pointer;
+    text-align:center;
+    transition:border-color .15s, background .15s;
+  }
+  .file-drop:hover{border-color:var(--accent);background:rgba(56,189,248,.05);}
+  .file-drop b{font-size:12.5px;font-weight:600;}
+  .file-drop small{font-size:10.5px;color:var(--muted);}
+
+  .thumbs{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:7px;
+    margin-top:11px;
+  }
+  .thumb{
+    position:relative;
+    aspect-ratio:1;
+    border-radius:7px;
+    overflow:hidden;
+    border:1px solid var(--border);
+    background:#000;
+  }
+  .thumb img{width:100%;height:100%;object-fit:cover;display:block;}
+  .thumb button{
+    position:absolute;top:3px;right:3px;
+    width:18px;height:18px;line-height:1;
+    border:none;border-radius:50%;
+    background:rgba(0,0,0,.72);
+    color:#fff;font-size:12px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+    padding:0;
+  }
+  .thumb button:hover{background:var(--err);}
+
+  /* ============================================================
+     ÁREA DE PREVISUALIZACIÓN
+     ============================================================ */
+  .preview{
+    display:flex;
+    flex-direction:column;
+    min-width:0;
+    min-height:0;
+  }
+  .preview-bar{
+    flex:0 0 auto;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    padding:10px 18px;
+    background:var(--panel);
+    border-bottom:1px solid var(--border);
+    font-size:12px;
+    color:var(--muted);
+  }
+  .preview-bar .tag{
+    background:var(--panel-2);
+    border:1px solid var(--border);
+    padding:4px 10px;
+    border-radius:20px;
+    font-size:11px;
+  }
+  .paper-area{
+    flex:1;
+    overflow:auto;
+    background:#20262e;
+    background-image:
+      radial-gradient(circle at 50% 0%, rgba(56,189,248,.06), transparent 60%);
+    padding:26px;
+    min-height:0;
+  }
+  .paper-area::-webkit-scrollbar{width:11px;height:11px;}
+  .paper-area::-webkit-scrollbar-track{background:#1a1f26;}
+  .paper-area::-webkit-scrollbar-thumb{background:#39424e;border-radius:6px;}
+  .paper-area::-webkit-scrollbar-thumb:hover{background:#4a5462;}
+
+  /* ============================================================
+     HOJA A4 (UI CLARA)
+     ============================================================ */
+  .a4{
+    width:210mm;
+    min-height:297mm;
+    background:#ffffff;
+    color:#111111;
+    margin:0 auto;
+    padding:14mm 15mm 12mm;
+    box-shadow:0 10px 40px rgba(0,0,0,.6);
+    display:flex;
+    flex-direction:column;
+    font-family:"Segoe UI", Arial, Helvetica, sans-serif;
+    font-size:10pt;
+    line-height:1.38;
+  }
+  .a4.exportando{box-shadow:none !important;}
+
+  /* --- Encabezado --- */
+  .doc-head{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    gap:8mm;
+    border-bottom:2.2px solid #111;
+    padding-bottom:3mm;
+  }
+  .doc-head h1{
+    margin:0;
+    font-size:13.5pt;
+    letter-spacing:.3px;
+    line-height:1.2;
+    text-transform:uppercase;
+  }
+  .doc-norm{
+    margin:1.6mm 0 0;
+    font-size:7.4pt;
+    color:#555;
+    max-width:118mm;
+    line-height:1.35;
+  }
+  .doc-head-right{
+    text-align:right;
+    font-size:8.2pt;
+    white-space:nowrap;
+    line-height:1.6;
+  }
+  .doc-code{font-weight:700;}
+  .doc-code span{font-weight:400;}
+
+  /* --- Metadatos --- */
+  .doc-meta{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:1.5mm 8mm;
+    margin:4.5mm 0 5mm;
+    font-size:8.8pt;
+  }
+  .meta-row{
+    display:flex;
+    gap:2mm;
+    padding-bottom:1mm;
+    border-bottom:.5px dotted #b9b9b9;
+    min-width:0;
+  }
+  .meta-row.full{grid-column:1 / -1;}
+  .meta-lbl{
+    font-weight:700;
+    color:#222;
+    flex:0 0 30mm;
+  }
+  .meta-val{
+    color:#111;
+    flex:1;
+    min-width:0;
+    word-break:break-word;
+  }
+
+  /* --- Secciones --- */
+  .doc-section{margin-bottom:5mm;}
+  .doc-section h2{
+    margin:0 0 2.4mm;
+    font-size:9.4pt;
+    letter-spacing:.5px;
+    text-transform:uppercase;
+    color:#111;
+    border-left:3.5px solid #111;
+    padding-left:2.5mm;
+  }
+  .doc-vacio{
+    font-size:8.5pt;
+    color:#888;
+    font-style:italic;
+    border:.5px dashed #ccc;
+    padding:4mm;
+    text-align:center;
+  }
+
+  /* --- Tabla --- */
+  .doc-table{
+    width:100%;
+    border-collapse:collapse;
+    font-size:8.4pt;
+  }
+  .doc-table th,
+  .doc-table td{
+    border:.6px solid #333;
+    padding:1.3mm 2mm;
+    text-align:center;
+    vertical-align:middle;
+  }
+  .doc-table th{
+    background:#e8e8e8;
+    font-weight:700;
+    font-size:7.6pt;
+    text-transform:uppercase;
+    letter-spacing:.3px;
+    color:#111;
+  }
+  .doc-table tbody tr:nth-child(even){background:#f7f7f7;}
+  .doc-table td:first-child{
+    text-align:left;
+    font-weight:600;
+    white-space:nowrap;
+  }
+
+  /* --- Resultados --- */
+  .doc-res{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:4mm;
+  }
+  .res-card{
+    border:1px solid #222;
+    border-radius:1.5mm;
+    padding:3mm 2mm;
+    text-align:center;
+    background:#fafafa;
+  }
+  .res-card .res-lbl{
+    font-size:7pt;
+    text-transform:uppercase;
+    letter-spacing:.4px;
+    color:#555;
+    line-height:1.25;
+  }
+  .res-card .res-val{
+    font-size:14pt;
+    font-weight:700;
+    margin-top:1.4mm;
+    color:#000;
+    line-height:1.1;
+  }
+  .res-card .res-uni{
+    font-size:7pt;
+    color:#666;
+    margin-top:.6mm;
+  }
+
+  /* --- Galería --- */
+  .doc-galeria{
+    display:grid;
+    grid-template-columns:repeat(2,1fr);
+    gap:3mm;
+  }
+  .foto-item{
+    margin:0;
+    border:.6px solid #888;
+    border-radius:1mm;
+    padding:1.4mm;
+    background:#fff;
+    page-break-inside:avoid;
+  }
+  .foto-item img{
+    width:100%;
+    height:42mm;
+    object-fit:cover;
+    display:block;
+    background:#eee;
+  }
+  .foto-item figcaption{
+    font-size:6.8pt;
+    color:#555;
+    text-align:center;
+    margin-top:1mm;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+
+  /* --- Observaciones --- */
+  .doc-obs{
+    margin:0;
+    font-size:8.8pt;
+    line-height:1.5;
+    white-space:pre-wrap;
+    border:.6px solid #bbb;
+    background:#fafafa;
+    padding:3mm;
+    min-height:18mm;
+    border-radius:1mm;
+    color:#111;
+  }
+
+  /* --- Firmas (al pie de la hoja) --- */
+  .doc-firmas{
+    margin-top:auto;
+    padding-top:12mm;
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:14mm;
+    page-break-inside:avoid;
+  }
+  .firma{text-align:center;}
+  .firma .linea{border-top:.8px solid #333;margin-bottom:1.4mm;}
+  .firma span{font-size:7.6pt;color:#333;}
+
+  .doc-pie{
+    margin-top:6mm;
+    padding-top:2mm;
+    border-top:.5px solid #ccc;
+    font-size:6.8pt;
+    color:#888;
+    text-align:center;
+  }
+
+  /* Reglas de salto de página para el PDF */
+  .doc-table tr,
+  .foto-item,
+  .res-card,
+  .doc-head{page-break-inside:avoid;}
+
+  /* ============================================================
+     RESPONSIVE
+     ============================================================ */
+  @media (min-width:1081px){
+    html,body{height:100%;overflow:hidden;}
+  }
+  @media (max-width:1080px){
+    .layout{grid-template-columns:1fr;}
+    .panel{border-right:none;border-bottom:1px solid var(--border);max-height:none;}
+    .paper-area{padding:16px;}
+    .a4{margin:0;}
+  }
+</style>
+</head>
+<body>
+
+<!-- ================= BARRA SUPERIOR ================= -->
+<header class="topbar">
+  <div class="brand">
+    <span class="dot"></span>
+    Generador de Informes de Laboratorio
+    <small>· Módulo de reportes</small>
+  </div>
+  <button class="btn btn-accent" id="btnExportarTop">📄 Exportar a PDF</button>
+</header>
+
+<div class="layout">
+
+  <!-- ================= PANEL DE CONTROLES ================= -->
+  <aside class="panel">
+
+    <!-- Datos -->
+    <div class="panel-block">
+      <h3>Origen de datos</h3>
+      <button class="btn btn-primary" id="btnCargar">📥 Cargar Datos Recientes</button>
+      <p class="hint" id="estadoCarga">Busca la clave <b>datosInformeActual</b> en el almacenamiento local.</p>
+      <button class="btn btn-ghost" id="btnDemo" style="margin-top:9px;">Cargar datos de ejemplo (demo)</button>
+    </div>
+
+    <!-- Metadatos -->
+    <div class="panel-block">
+      <h3>Metadatos del informe</h3>
+
+      <label class="field">
+        <span>Nombre del Proyecto</span>
+        <input class="input" type="text" data-meta="proyecto" placeholder="Ej. Pavimento rígido Av. Central">
+      </label>
+
+      <label class="field">
+        <span>Cliente</span>
+        <input class="input" type="text" data-meta="cliente" placeholder="Ej. Constructora XYZ S.A.">
+      </label>
+
+      <label class="field">
+        <span>Ubicación</span>
+        <input class="input" type="text" data-meta="ubicacion" placeholder="Ej. Tramo Km 2+300, Municipio X">
+      </label>
+
+      <label class="field">
+        <span>Descripción del Material</span>
+        <input class="input" type="text" data-meta="material" placeholder="Ej. Agregado fino natural, arena de río">
+      </label>
+
+      <label class="field">
+        <span>Técnico Responsable</span>
+        <input class="input" type="text" data-meta="tecnico" placeholder="Ej. Ing. Juan Pérez">
+      </label>
+
+      <label class="field">
+        <span>Fecha del informe</span>
+        <input class="input" type="date" data-meta="fecha">
+      </label>
+    </div>
+
+    <!-- Medios -->
+    <div class="panel-block">
+      <h3>Registro fotográfico</h3>
+      <label class="file-drop">
+        <input type="file" id="inFotos" accept="image/*" multiple hidden>
+        <b>🖼️ Seleccionar imágenes</b>
+        <small>JPG · PNG · puede elegir varias</small>
+      </label>
+      <div class="thumbs" id="panelThumbs"></div>
+    </div>
+
+    <!-- Observaciones -->
+    <div class="panel-block">
+      <h3>Observaciones técnicas</h3>
+      <textarea data-obs placeholder="Escriba aquí los comentarios técnicos que aparecerán al final del reporte…"></textarea>
+    </div>
+
+    <!-- Exportar -->
+    <div class="panel-block">
+      <button class="btn btn-accent" id="btnExportar">📄 Exportar a PDF</button>
+      <p class="hint">Genera un archivo <b>Reporte_Granulometria.pdf</b> en formato A4 con calidad de impresión.</p>
+    </div>
+
+  </aside>
+
+  <!-- ================= PREVISUALIZACIÓN ================= -->
+  <section class="preview">
+    <div class="preview-bar">
+      <span>Vista Previa del Documento</span>
+      <span class="tag">Hoja A4 · 210 × 297 mm</span>
+    </div>
+
+    <div class="paper-area">
+      <!-- ======== DOCUMENTO A4 (UI CLARA) ======== -->
+      <div class="a4" id="docA4">
+
+        <!-- Encabezado -->
+        <header class="doc-head">
+          <div class="doc-head-left">
+            <h1>Reporte de Análisis Granulométrico</h1>
+            <p class="doc-norm">Norma ASTM C 136 — Método de ensayo estándar para el análisis por tamizado
+              de agregados finos y gruesos.</p>
+          </div>
+          <div class="doc-head-right">
+            <div class="doc-code">INFORME N.º <span id="docCodigo">—</span></div>
+            <div>Fecha: <span id="docFecha">—</span></div>
+          </div>
+        </header>
+
+        <!-- Metadatos -->
+        <section class="doc-meta">
+          <div class="meta-row"><span class="meta-lbl">Proyecto:</span><span class="meta-val" id="docProyecto">—</span></div>
+          <div class="meta-row"><span class="meta-lbl">Cliente:</span><span class="meta-val" id="docCliente">—</span></div>
+          <div class="meta-row"><span class="meta-lbl">Ubicación:</span><span class="meta-val" id="docUbicacion">—</span></div>
+          <div class="meta-row"><span class="meta-lbl">Técnico:</span><span class="meta-val" id="docTecnico">—</span></div>
+          <div class="meta-row full"><span class="meta-lbl">Material:</span><span class="meta-val" id="docMaterial">—</span></div>
+        </section>
+
+        <!-- Tabla -->
+        <section class="doc-section">
+          <h2>1. Datos del ensayo granulométrico</h2>
+          <div id="docTablaWrap"></div>
+        </section>
+
+        <!-- Resultados -->
+        <section class="doc-section">
+          <h2>2. Resultados</h2>
+          <div class="doc-res" id="docResultados"></div>
+        </section>
+
+        <!-- Imágenes -->
+        <section class="doc-section" id="docSeccionFotos">
+          <h2>3. Registro fotográfico</h2>
+          <div class="doc-galeria" id="docGaleria"></div>
+        </section>
+
+        <!-- Observaciones -->
+        <section class="doc-section" id="docSeccionObs">
+          <h2>Observaciones:</h2>
+          <p class="doc-obs" id="docObs">Sin observaciones.</p>
+        </section>
+
+        <!-- Firmas -->
+        <footer class="doc-firmas">
+          <div class="firma">
+            <div class="linea"></div>
+            <span id="docFirmaTecnico">Técnico Responsable</span>
+          </div>
+          <div class="firma">
+            <div class="linea"></div>
+            <span>Revisado / Aprobado por</span>
+          </div>
+        </footer>
+
+        <div class="doc-pie">
+          Documento generado automáticamente por el Generador de Informes de Laboratorio ·
+          Los resultados corresponden únicamente a la muestra ensayada.
+        </div>
+
+      </div>
+      <!-- ======== FIN DOCUMENTO A4 ======== -->
+    </div>
+  </section>
+
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ============================================================
+     ESTADO GLOBAL
+     ============================================================ */
+  const STORAGE_KEY = 'datosInformeActual';
+  const $ = id => document.getElementById(id);
+
+  const state = {
+    codigo: generarCodigo(),
+    meta: { proyecto:'', cliente:'', ubicacion:'', material:'', tecnico:'', fecha: hoyISO() },
+    filas: [],
+    resultados: { mf:null, tm:null, tmn:null },
+    imagenes: [],
+    observaciones: ''
+  };
+
+  /* ============================================================
+     UTILIDADES
+     ============================================================ */
+  function hoyISO(){
+    const d = new Date();
+    const off = d.getTimezoneOffset();
+    return new Date(d.getTime() - off * 60000).toISOString().slice(0, 10);
+  }
+
+  function generarCodigo(){
+    const d = new Date();
+    const p = n => String(n).padStart(2, '0');
+    return 'LAB-' + d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + '-' + p(d.getHours()) + p(d.getMinutes());
+  }
+
+  function esc(v){
+    return String(v === null || v === undefined ? '' : v)
+      .replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+  }
+
+  function num(v){
+    if (v === null || v === undefined || v === '') return null;
+    if (typeof v === 'number') return isFinite(v) ? v : null;
+    const n = parseFloat(String(v).replace('%', '').replace(',', '.').trim());
+    return isNaN(n) ? null : n;
+  }
+
+  function formatearNumero(v, dec){
+    if (v === null || v === undefined || v === '') return '—';
+    const n = Number(v);
+    if (!isFinite(n)) return String(v);
+    let s = n.toFixed(dec);
+    if (dec > 0) s = s.replace(/\.?0+$/, '');
+    return (s === '' || s === '-') ? '0' : s;
+  }
+
+  function formatearFecha(v){
+    if (!v) return '—';
+    const d = new Date(String(v).length === 10 ? v + 'T00:00:00' : v);
+    if (isNaN(d.getTime())) return String(v);
+    return d.toLocaleDateString('es-ES', { day:'2-digit', month:'long', year:'numeric' });
+  }
+
+  /** Búsqueda de clave insensible a mayúsculas/acentos básicos. */
+  function pick(obj, keys){
+    if (!obj || typeof obj !== 'object') return undefined;
+    const mapa = {};
+    Object.keys(obj).forEach(k => { mapa[k.toLowerCase().trim()] = obj[k]; });
+    for (const k of keys){
+      const v = mapa[String(k).toLowerCase().trim()];
+      if (v !== undefined && v !== null && v !== '') return v;
+    }
+    return undefined;
+  }
+
+  /* ============================================================
+     NORMALIZACIÓN DE LOS DATOS DEL localStorage
+     (tolerante a distintas estructuras guardadas por la calculadora)
+     ============================================================ */
+  const CLAVES_TABLA = [
+    'tabla','tablaDatos','tablaGranulometria','tablaGranulométrica','granulometria','granulometría',
+    'filas','rows','mallas','tamices','datos','data','items','registros','resultadosTabla'
+  ];
+  const CLAVES_RESULTADOS = [
+    'resultados','resultado','resumen','calculos','cálculos','metricas','métricas','indicadores','valores'
+  ];
+
+  function mapFila(f){
+    if (!f || typeof f !== 'object'){
+      return { tamiz: f !== undefined && f !== null ? String(f) : '', abertura:null, retenido:null, pctRet:null, pctAcum:null, pasa:null };
+    }
+    let tamiz = pick(f, ['tamiz','malla','sieve','designacion','designación','nombre','descripcion','descripción','pulg','pulgadas','nomenclatura']);
+    const abertura = num(pick(f, ['abertura','aberturaMm','abertura_mm','mm','luz','tamanoMm','tamañoMm','micron','micras']));
+    const retenido = num(pick(f, ['retenido','pesoRetenido','peso_retenido','masaRetenida','masa_retenida','peso','ret','gramos']));
+    const pctRet   = num(pick(f, ['porcentajeRetenido','pctRetenido','porcRetenido','porcentaje_retenido','pctRet','retPct','retenidoPorc']));
+    const pctAcum  = num(pick(f, ['porcentajeAcumulado','pctAcumulado','porcAcumulado','porcentaje_acumulado','pctAcum','acum','acumulado','retenidoAcumulado']));
+    const pasa     = num(pick(f, ['porcentajePasa','pctPasa','porcPasa','porcentaje_pasa','pctPasa','pasa','quePasa','porcentajeQuePasa']));
+
+    if ((tamiz === undefined || tamiz === '') && abertura !== null) tamiz = abertura + ' mm';
+
+    return {
+      tamiz: tamiz !== undefined && tamiz !== null ? String(tamiz) : '',
+      abertura, retenido, pctRet, pctAcum, pasa
+    };
+  }
+
+  function buscarFilas(data){
+    const fuentes = [data, data.datos, data.data, data.informe, data.reporte, data.ensayo]
+      .filter(o => o && typeof o === 'object' && !Array.isArray(o));
+
+    for (const src of fuentes){
+      for (const k of CLAVES_TABLA){
+        const v = pick(src, [k]);
+        if (Array.isArray(v) && v.length) return v;
+      }
+    }
+    // Si "resultados" fuese en realidad un arreglo de filas
+    for (const src of fuentes){
+      const v = pick(src, ['resultados','resultado']);
+      if (Array.isArray(v) && v.length && typeof v[0] === 'object' && pick(v[0], ['tamiz','malla','abertura','mm'])){
+        return v;
+      }
+    }
+    return [];
+  }
+
+  function buscarResultados(data){
+    const fuentes = [data, data.datos, data.data, data.informe, data.reporte];
+    const candidatos = [];
+
+    fuentes.forEach(src => {
+      if (!src || typeof src !== 'object') return;
+      CLAVES_RESULTADOS.forEach(k => {
+        const v = pick(src, [k]);
+        if (v && typeof v === 'object' && !Array.isArray(v)) candidatos.push(v);
+      });
+    });
+    if (data && typeof data === 'object') candidatos.push(data);
+
+    for (const c of candidatos){
+      const mf  = pick(c, ['moduloFinura','moduloDeFinura','modulo_finura','moduloGranulometria','mf','finura','modulo']);
+      const tm  = pick(c, ['tm','tamanoMaximo','tamañoMaximo','tamano_maximo','tamaño_máximo','tmax','tamMax','tamanoMax']);
+      const tmn = pick(c, ['tmn','tamanoMaximoNominal','tamañoMaximoNominal','tamano_maximo_nominal','tamNominal','tmaxNom','tamanoNominal']);
+      if (mf !== undefined || tm !== undefined || tmn !== undefined){
+        return { mf: mf ?? null, tm: tm ?? null, tmn: tmn ?? null };
+      }
+    }
+    return { mf:null, tm:null, tmn:null };
+  }
+
+  function buscarMetadatos(data){
+    const fuentes = [data, data.metadatos, data.meta, data.encabezado, data.cabecera, data.proyecto]
+      .filter(o => o && typeof o === 'object' && !Array.isArray(o));
+    const out = {};
+    const mapa = {
+      proyecto:  ['proyecto','nombreProyecto','nombre_proyecto','obra'],
+      cliente:   ['cliente','solicitante','empresa'],
+      ubicacion: ['ubicacion','ubicación','localizacion','localización','sitio','lugar'],
+      material:  ['material','descripcionMaterial','descripciónMaterial','descripcion_material','muestra','tipoMaterial'],
+      tecnico:   ['tecnico','técnico','responsable','tecnicoResponsable','realizadoPor','operador'],
+      fecha:     ['fecha','fechaEnsayo','fecha_ensayo','fechaInforme','fechaMuestreo']
+    };
+    Object.keys(mapa).forEach(campo => {
+      for (const src of fuentes){
+        const v = pick(src, mapa[campo]);
+        if (v !== undefined && typeof v !== 'object'){ out[campo] = String(v); return; }
+      }
+    });
+    return out;
+  }
+
+  /* ============================================================
+     RENDERIZADO DEL DOCUMENTO A4
+     ============================================================ */
+  const COLUMNAS = [
+    { key:'tamiz',   label:'Tamiz',                tipo:'texto' },
+    { key:'abertura',label:'Abertura (mm)',        tipo:'num', dec:2 },
+    { key:'retenido',label:'Retenido (g)',         tipo:'num', dec:1 },
+    { key:'pctRet',  label:'% Retenido',           tipo:'num', dec:2 },
+    { key:'pctAcum', label:'% Ret. Acumulado',     tipo:'num', dec:2 },
+    { key:'pasa',    label:'% Pasa',               tipo:'num', dec:2 }
+  ];
+
+  function renderTabla(){
+    const wrap = $('docTablaWrap');
+    const filas = state.filas;
+
+    if (!filas.length){
+      wrap.innerHTML = '<p class="doc-vacio">Sin datos granulométricos cargados. Use el botón «Cargar Datos Recientes».</p>';
+      return;
+    }
+
+    const cols = COLUMNAS.filter(c =>
+      c.key === 'tamiz' || c.key === 'abertura' ||
+      filas.some(f => f[c.key] !== null && f[c.key] !== undefined)
+    );
+
+    let html = '<table class="doc-table"><thead><tr>';
+    cols.forEach(c => { html += '<th>' + esc(c.label) + '</th>'; });
+    html += '</tr></thead><tbody>';
+
+    filas.forEach(f => {
+      html += '<tr>';
+      cols.forEach(c => {
+        const v = f[c.key];
+        const txt = (c.tipo === 'texto')
+          ? (v && String(v).trim() ? v : '—')
+          : formatearNumero(v, c.dec);
+        html += '<td>' + esc(txt) + '</td>';
+      });
+      html += '</tr>';
+    });
+
+    html += '</tbody></table>';
+    wrap.innerHTML = html;
+  }
+
+  function renderResultados(){
+    const r = state.resultados;
+    const items = [
+      { lbl:'Módulo de Finura',        val: r.mf,  uni:'adimensional' },
+      { lbl:'Tamaño Máximo (TM)',      val: r.tm,  uni:'mm' },
+      { lbl:'Tamaño Máx. Nominal (TMN)', val: r.tmn, uni:'mm' }
+    ];
+
+    $('docResultados').innerHTML = items.map(it => {
+      let valor = '—', unidad = it.uni;
+      if (it.val !== null && it.val !== undefined && it.val !== ''){
+        if (typeof it.val === 'number' || (!isNaN(parseFloat(it.val)) && /^[\d.,\s]+$/.test(String(it.val)))){
+          valor = formatearNumero(parseFloat(it.val), 2);
+        } else {
+          valor = String(it.val);   // p.ej. '9.5 mm (3/8")'
+          unidad = '';
+        }
+      } else {
+        unidad = 'no disponible';
+      }
+      return '<div class="res-card">' +
+               '<div class="res-lbl">' + esc(it.lbl) + '</div>' +
+               '<div class="res-val">' + esc(valor) + '</div>' +
+               (unidad ? '<div class="res-uni">' + esc(unidad) + '</div>' : '') +
+             '</div>';
+    }).join('');
+  }
+
+  function renderGaleria(){
+    const sec = $('docSeccionFotos');
+    const gal = $('docGaleria');
+
+    if (!state.imagenes.length){
+      sec.style.display = 'none';
+      gal.innerHTML = '';
+      return;
+    }
+    sec.style.display = '';
+    gal.innerHTML = state.imagenes.map((img, i) =>
+      '<figure class="foto-item">' +
+        '<img src="' + img.src + '" alt="' + esc(img.nombre) + '">' +
+        '<figcaption>Fig. ' + (i + 1) + '. ' + esc(img.nombre) + '</figcaption>' +
+      '</figure>'
+    ).join('');
+  }
+
+  function render(){
+    const m = state.meta;
+
+    $('docCodigo').textContent    = state.codigo;
+    $('docFecha').textContent     = formatearFecha(m.fecha);
+    $('docProyecto').textContent  = m.proyecto  || '—';
+    $('docCliente').textContent   = m.cliente   || '—';
+    $('docUbicacion').textContent = m.ubicacion || '—';
+    $('docTecnico').textContent   = m.tecnico   || '—';
+    $('docMaterial').textContent  = m.material  || '—';
+    $('docFirmaTecnico').textContent = m.tecnico || 'Técnico Responsable';
+    $('docObs').textContent = state.observaciones.trim() || 'Sin observaciones.';
+
+    renderTabla();
+    renderResultados();
+    renderGaleria();
+  }
+
+  /* ============================================================
+     PANEL: MINIATURAS
+     ============================================================ */
+  function renderPanelThumbs(){
+    const cont = $('panelThumbs');
+    if (!state.imagenes.length){ cont.innerHTML = ''; return; }
+    cont.innerHTML = state.imagenes.map((img, i) =>
+      '<div class="thumb">' +
+        '<img src="' + img.src + '" alt="">' +
+        '<button type="button" title="Quitar imagen" data-idx="' + i + '">×</button>' +
+      '</div>'
+    ).join('');
+  }
+
+  $('panelThumbs').addEventListener('click', e => {
+    const btn = e.target.closest('button[data-idx]');
+    if (!btn) return;
+    state.imagenes.splice(Number(btn.dataset.idx), 1);
+    renderPanelThumbs();
+    render();
+  });
+
+  /* ============================================================
+     EVENTOS DEL PANEL
+     ============================================================ */
+  function setEstado(msg, tipo){
+    const el = $('estadoCarga');
+    el.textContent = msg;
+    el.className = 'hint' + (tipo ? ' ' + tipo : '');
+  }
+
+  // Metadatos
+  document.querySelectorAll('[data-meta]').forEach(el => {
+    el.addEventListener('input', () => {
+      state.meta[el.dataset.meta] = el.value;
+      render();
+    });
+  });
+
+  // Observaciones
+  document.querySelector('[data-obs]').addEventListener('input', e => {
+    state.observaciones = e.target.value;
+    render();
+  });
+
+  // Imágenes
+  $('inFotos').addEventListener('change', e => {
+    const files = Array.from(e.target.files || []);
+    files.forEach(file => {
+      if (!file.type.startsWith('image/')) return;
+      const reader = new FileReader();
+      reader.onload = ev => {
+        state.imagenes.push({ nombre: file.name, src: ev.target.result });
+        renderPanelThumbs();
+        render();
+      };
+      reader.readAsDataURL(file);
+    });
+    e.target.value = '';
+  });
+
+  /* ============================================================
+     CARGA DE DATOS DESDE localStorage
+     ============================================================ */
+  function aplicarDatos(data){
+    const filas = buscarFilas(data).map(mapFila);
+    const resultados = buscarResultados(data);
+    const meta = buscarMetadatos(data);
+
+    state.filas = filas;
+    state.resultados = resultados;
+
+    // Volcar metadatos en los inputs (solo si el input está vacío o si el dato existe)
+    Object.keys(meta).forEach(campo => {
+      if (!(campo in state.meta)) return;
+      const input = document.querySelector('[data-meta="' + campo + '"]');
+      if (!input) return;
+      if (!input.value || campo === 'fecha'){
+        input.value = meta[campo];
+        state.meta[campo] = meta[campo];
+      }
+    });
+
+    render();
+
+    const n = filas.length;
+    if (n === 0){
+      setEstado('Se encontró información, pero no se detectó una tabla granulométrica válida.', 'err');
+    } else {
+      setEstado('✔ Datos cargados: ' + n + ' filas.' +
+        (resultados.mf !== null ? ' MF: ' + resultados.mf : ''), 'ok');
+    }
+  }
+
+  function cargarDatosRecientes(){
+    let raw;
+    try { raw = localStorage.getItem(STORAGE_KEY); }
+    catch (err){ setEstado('No se pudo acceder al almacenamiento local.', 'err'); return; }
+
+    if (!raw){
+      setEstado('No se encontró la clave «' + STORAGE_KEY + '» en el almacenamiento local.', 'err');
+      return;
+    }
+
+    let data;
+    try { data = JSON.parse(raw); }
+    catch (err){
+      setEstado('La información guardada no es un JSON válido.', 'err');
+      return;
+    }
+
+    aplicarDatos(data);
+  }
+
+  $('btnCargar').addEventListener('click', cargarDatosRecientes);
+
+  /* ============================================================
+     DATOS DE EJEMPLO (DEMO)
+     ============================================================ */
+  $('btnDemo').addEventListener('click', () => {
+    const demo = {
+      proyecto: 'Pavimento rígido Av. Central',
+      cliente: 'Constructora XYZ S.A.',
+      ubicacion: 'Tramo Km 2+300 — Municipio de San Pedro',
+      material: 'Agregado fino natural (arena de río)',
+      tecnico: 'Ing. Juan Pérez',
+      fecha: hoyISO(),
+      tabla: [
+        { tamiz:'1"',      abertura:25.0, retenido:0,   porcentajeRetenido:0,    porcentajeAcumulado:0,   porcentajePasa:100 },
+        { tamiz:'3/4"',    abertura:19.0, retenido:0,   porcentajeRetenido:0,    porcentajeAcumulado:0,   porcentajePasa:100 },
+        { tamiz:'1/2"',    abertura:12.5, retenido:0,   porcentajeRetenido:0,    porcentajeAcumulado:0,   porcentajePasa:100 },
+        { tamiz:'3/8"',    abertura:9.5,  retenido:10,  porcentajeRetenido:1.0,  porcentajeAcumulado:1.0, porcentajePasa:99.0 },
+        { tamiz:'N.º 4',   abertura:4.75, retenido:60,  porcentajeRetenido:6.0,  porcentajeAcumulado:7.0, porcentajePasa:93.0 },
+        { tamiz:'N.º 8',   abertura:2.36, retenido:120, porcentajeRetenido:12.0, porcentajeAcumulado:19.0,porcentajePasa:81.0 },
+        { tamiz:'N.º 16',  abertura:1.18, retenido:150, porcentajeRetenido:15.0, porcentajeAcumulado:34.0,porcentajePasa:66.0 },
+        { tamiz:'N.º 30',  abertura:0.60, retenido:180, porcentajeRetenido:18.0, porcentajeAcumulado:52.0,porcentajePasa:48.0 },
+        { tamiz:'N.º 50',  abertura:0.30, retenido:160, porcentajeRetenido:16.0, porcentajeAcumulado:68.0,porcentajePasa:32.0 },
+        { tamiz:'N.º 100', abertura:0.15, retenido:110, porcentajeRetenido:11.0, porcentajeAcumulado:79.0,porcentajePasa:21.0 },
+        { tamiz:'N.º 200', abertura:0.075,retenido:80,  porcentajeRetenido:8.0,  porcentajeAcumulado:87.0,porcentajePasa:13.0 },
+        { tamiz:'Fondo',   abertura:null, retenido:130, porcentajeRetenido:13.0, porcentajeAcumulado:100, porcentajePasa:0 }
+      ],
+      resultados: { moduloFinura: 2.59, tm: '9.5 mm (3/8")', tmn: '4.75 mm (N.º 4)' }
+    };
+
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(demo)); } catch (e) {}
+    aplicarDatos(demo);
+    setEstado('✔ Datos de ejemplo cargados (12 filas).', 'ok');
+  });
+
+  /* ============================================================
+     EXPORTACIÓN A PDF
+     ============================================================ */
+  function esperarImagenes(contenedor){
+    const imgs = Array.from(contenedor.querySelectorAll('img'));
+    return Promise.all(imgs.map(img => {
+      if (img.complete && img.naturalWidth) return Promise.resolve();
+      return new Promise(res => { img.onload = img.onerror = () => res(); });
+    }));
+  }
+
+  function setBotonesExportando(activo){
+    [$('btnExportar'), $('btnExportarTop')].forEach(b => {
+      if (!b) return;
+      b.disabled = activo;
+      if (activo){
+        b.dataset.txt = b.textContent;
+        b.textContent = '⏳ Generando PDF…';
+      } else if (b.dataset.txt){
+        b.textContent = b.dataset.txt;
+      }
+    });
+  }
+
+  async function exportarPDF(){
+    const el = $('docA4');
+
+    if (typeof html2pdf === 'undefined'){
+      alert('No se pudo cargar la librería html2pdf.js.\nVerifique su conexión a internet e intente de nuevo.');
+      return;
+    }
+
+    setBotonesExportando(true);
+    el.classList.add('exportando');
+
+    try {
+      await esperarImagenes(el);
+
+      const opciones = {
+        margin: 0,
+        filename: 'Reporte_Granulometria.pdf',
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: {
+          scale: 2,                 // alta calidad
+          useCORS: true,
+          backgroundColor: '#ffffff',
+          logging: false,
+          scrollX: 0,
+          scrollY: 0
+        },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        pagebreak: {
+          mode: ['css', 'legacy'],
+          avoid: ['tr', '.foto-item', '.res-card', '.doc-firmas', '.doc-head']
+        }
+      };
+
+      await html2pdf().set(opciones).from(el).save();
+
+    } catch (err){
+      console.error(err);
+      alert('Ocurrió un error al generar el PDF: ' + (err && err.message ? err.message : err));
+    } finally {
+      el.classList.remove('exportando');
+      setBotonesExportando(false);
+    }
+  }
+
+  $('btnExportar').addEventListener('click', exportarPDF);
+  $('btnExportarTop').addEventListener('click', exportarPDF);
+
+  /* ============================================================
+     INICIALIZACIÓN
+     ============================================================ */
+  function init(){
+    const inputFecha = document.querySelector('[data-meta="fecha"]');
+    if (inputFecha) inputFecha.value = state.meta.fecha;
+
+    render();
+
+    // Si ya existen datos guardados, se cargan automáticamente al abrir el módulo
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw){
+        aplicarDatos(JSON.parse(raw));
+        setEstado('✔ Datos detectados automáticamente en el almacenamiento local.', 'ok');
+      }
+    } catch (e){ /* silencioso */ }
+  }
+
+  document.addEventListener('DOMContentLoaded', init);
+  if (document.readyState !== 'loading') init();
+
+})();
+</script>
+</body>
+</html>
