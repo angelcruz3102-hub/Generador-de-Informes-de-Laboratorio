@@ -329,7 +329,8 @@
   .meta-lbl{
     font-weight:700;
     color:#222;
-    flex:0 0 30mm;
+    flex:0 0 40mm;          /* ancho ampliado para etiquetas académicas largas */
+    white-space:nowrap;
   }
   .meta-val{
     color:#111;
@@ -531,40 +532,41 @@
       <button class="btn btn-ghost" id="btnDemo" style="margin-top:9px;">Cargar datos de ejemplo (demo)</button>
     </div>
 
-    <!-- Metadatos -->
+    <!-- ================= METADATOS DEL INFORME ================= -->
     <div class="panel-block">
       <h3>Metadatos del informe</h3>
 
       <label class="field">
-        <span>Nombre del Proyecto</span>
-        <input class="input" type="text" data-meta="proyecto" placeholder="Ej. Pavimento rígido Av. Central">
+        <span>Tema de la Práctica</span>
+        <input class="input" type="text" data-meta="proyecto" placeholder="Ej. Práctica #1: Análisis Granulométrico">
       </label>
 
       <label class="field">
-        <span>Cliente</span>
-        <input class="input" type="text" data-meta="cliente" placeholder="Ej. Constructora XYZ S.A.">
+        <span>Profesor(a)</span>
+        <input class="input" type="text" data-meta="cliente" placeholder="Ej. Ing. Nombre del Profesor">
       </label>
 
       <label class="field">
-        <span>Ubicación</span>
-        <input class="input" type="text" data-meta="ubicacion" placeholder="Ej. Tramo Km 2+300, Municipio X">
+        <span>Sección / Grupo</span>
+        <input class="input" type="text" data-meta="ubicacion" placeholder="Ej. Sección 04 - Mesa 2">
+      </label>
+
+      <label class="field">
+        <span>Estudiante(s) y Matrícula</span>
+        <input class="input" type="text" data-meta="tecnico" placeholder="Ej. Ángel Cruz - 100XXXXXX">
       </label>
 
       <label class="field">
         <span>Descripción del Material</span>
-        <input class="input" type="text" data-meta="material" placeholder="Ej. Agregado fino natural, arena de río">
+        <input class="input" type="text" data-meta="material" placeholder="Ej. Agregado fino (Arena) de la cantera X">
       </label>
 
       <label class="field">
-        <span>Técnico Responsable</span>
-        <input class="input" type="text" data-meta="tecnico" placeholder="Ej. Ing. Juan Pérez">
-      </label>
-
-      <label class="field">
-        <span>Fecha del informe</span>
+        <span>Fecha de la Práctica</span>
         <input class="input" type="date" data-meta="fecha">
       </label>
     </div>
+    <!-- ========================================================= -->
 
     <!-- Medios -->
     <div class="panel-block">
@@ -607,7 +609,7 @@
           <div class="doc-head-left">
             <h1>Reporte de Análisis Granulométrico</h1>
             <p class="doc-norm">Norma ASTM C 136 — Método de ensayo estándar para el análisis por tamizado
-              de agregados finos y gruesos.</p>
+              de agregados finos y gruesos. Laboratorio de Materiales de Construcción.</p>
           </div>
           <div class="doc-head-right">
             <div class="doc-code">INFORME N.º <span id="docCodigo">—</span></div>
@@ -615,14 +617,15 @@
           </div>
         </header>
 
-        <!-- Metadatos -->
+        <!-- ================= METADATOS ACADÉMICOS ================= -->
         <section class="doc-meta">
-          <div class="meta-row"><span class="meta-lbl">Proyecto:</span><span class="meta-val" id="docProyecto">—</span></div>
-          <div class="meta-row"><span class="meta-lbl">Cliente:</span><span class="meta-val" id="docCliente">—</span></div>
-          <div class="meta-row"><span class="meta-lbl">Ubicación:</span><span class="meta-val" id="docUbicacion">—</span></div>
-          <div class="meta-row"><span class="meta-lbl">Técnico:</span><span class="meta-val" id="docTecnico">—</span></div>
-          <div class="meta-row full"><span class="meta-lbl">Material:</span><span class="meta-val" id="docMaterial">—</span></div>
+          <div class="meta-row"><span class="meta-lbl">Tema de la Práctica:</span><span class="meta-val" id="docProyecto">—</span></div>
+          <div class="meta-row"><span class="meta-lbl">Profesor(a):</span><span class="meta-val" id="docCliente">—</span></div>
+          <div class="meta-row"><span class="meta-lbl">Sección / Grupo:</span><span class="meta-val" id="docUbicacion">—</span></div>
+          <div class="meta-row"><span class="meta-lbl">Estudiante(s) y Matrícula:</span><span class="meta-val" id="docTecnico">—</span></div>
+          <div class="meta-row full"><span class="meta-lbl">Descripción del Material:</span><span class="meta-val" id="docMaterial">—</span></div>
         </section>
+        <!-- ======================================================== -->
 
         <!-- Tabla -->
         <section class="doc-section">
@@ -652,16 +655,17 @@
         <footer class="doc-firmas">
           <div class="firma">
             <div class="linea"></div>
-            <span id="docFirmaTecnico">Técnico Responsable</span>
+            <span id="docFirmaTecnico">Estudiante(s)</span>
           </div>
           <div class="firma">
             <div class="linea"></div>
-            <span>Revisado / Aprobado por</span>
+            <span>Profesor(a)</span>
           </div>
         </footer>
 
         <div class="doc-pie">
           Documento generado automáticamente por el Generador de Informes de Laboratorio ·
+          Trabajo académico — Laboratorio de Materiales de Construcción ·
           Los resultados corresponden únicamente a la muestra ensayada.
         </div>
 
@@ -734,7 +738,6 @@
     return d.toLocaleDateString('es-ES', { day:'2-digit', month:'long', year:'numeric' });
   }
 
-  /** Búsqueda de clave insensible a mayúsculas/acentos básicos. */
   function pick(obj, keys){
     if (!obj || typeof obj !== 'object') return undefined;
     const mapa = {};
@@ -748,7 +751,6 @@
 
   /* ============================================================
      NORMALIZACIÓN DE LOS DATOS DEL localStorage
-     (tolerante a distintas estructuras guardadas por la calculadora)
      ============================================================ */
   const CLAVES_TABLA = [
     'tabla','tablaDatos','tablaGranulometria','tablaGranulométrica','granulometria','granulometría',
@@ -767,7 +769,7 @@
     const retenido = num(pick(f, ['retenido','pesoRetenido','peso_retenido','masaRetenida','masa_retenida','peso','ret','gramos']));
     const pctRet   = num(pick(f, ['porcentajeRetenido','pctRetenido','porcRetenido','porcentaje_retenido','pctRet','retPct','retenidoPorc']));
     const pctAcum  = num(pick(f, ['porcentajeAcumulado','pctAcumulado','porcAcumulado','porcentaje_acumulado','pctAcum','acum','acumulado','retenidoAcumulado']));
-    const pasa     = num(pick(f, ['porcentajePasa','pctPasa','porcPasa','porcentaje_pasa','pctPasa','pasa','quePasa','porcentajeQuePasa']));
+    const pasa     = num(pick(f, ['porcentajePasa','pctPasa','porcPasa','porcentaje_pasa','quePasa','porcentajeQuePasa']));
 
     if ((tamiz === undefined || tamiz === '') && abertura !== null) tamiz = abertura + ' mm';
 
@@ -787,7 +789,6 @@
         if (Array.isArray(v) && v.length) return v;
       }
     }
-    // Si "resultados" fuese en realidad un arreglo de filas
     for (const src of fuentes){
       const v = pick(src, ['resultados','resultado']);
       if (Array.isArray(v) && v.length && typeof v[0] === 'object' && pick(v[0], ['tamiz','malla','abertura','mm'])){
@@ -826,12 +827,12 @@
       .filter(o => o && typeof o === 'object' && !Array.isArray(o));
     const out = {};
     const mapa = {
-      proyecto:  ['proyecto','nombreProyecto','nombre_proyecto','obra'],
-      cliente:   ['cliente','solicitante','empresa'],
-      ubicacion: ['ubicacion','ubicación','localizacion','localización','sitio','lugar'],
+      proyecto:  ['proyecto','nombreProyecto','nombre_proyecto','obra','tema','temaPractica','practica'],
+      cliente:   ['cliente','profesor','docente','solicitante','empresa'],
+      ubicacion: ['ubicacion','ubicación','seccion','sección','grupo','mesa','localizacion','localización','sitio','lugar'],
       material:  ['material','descripcionMaterial','descripciónMaterial','descripcion_material','muestra','tipoMaterial'],
-      tecnico:   ['tecnico','técnico','responsable','tecnicoResponsable','realizadoPor','operador'],
-      fecha:     ['fecha','fechaEnsayo','fecha_ensayo','fechaInforme','fechaMuestreo']
+      tecnico:   ['tecnico','técnico','estudiante','estudiantes','responsable','tecnicoResponsable','realizadoPor','operador','matricula','matrícula'],
+      fecha:     ['fecha','fechaPractica','fecha_práctica','fechaEnsayo','fecha_ensayo','fechaInforme','fechaMuestreo']
     };
     Object.keys(mapa).forEach(campo => {
       for (const src of fuentes){
@@ -902,7 +903,7 @@
         if (typeof it.val === 'number' || (!isNaN(parseFloat(it.val)) && /^[\d.,\s]+$/.test(String(it.val)))){
           valor = formatearNumero(parseFloat(it.val), 2);
         } else {
-          valor = String(it.val);   // p.ej. '9.5 mm (3/8")'
+          valor = String(it.val);
           unidad = '';
         }
       } else {
@@ -944,7 +945,7 @@
     $('docUbicacion').textContent = m.ubicacion || '—';
     $('docTecnico').textContent   = m.tecnico   || '—';
     $('docMaterial').textContent  = m.material  || '—';
-    $('docFirmaTecnico').textContent = m.tecnico || 'Técnico Responsable';
+    $('docFirmaTecnico').textContent = m.tecnico || 'Estudiante(s)';
     $('docObs').textContent = state.observaciones.trim() || 'Sin observaciones.';
 
     renderTabla();
@@ -1024,7 +1025,6 @@
     state.filas = filas;
     state.resultados = resultados;
 
-    // Volcar metadatos en los inputs (solo si el input está vacío o si el dato existe)
     Object.keys(meta).forEach(campo => {
       if (!(campo in state.meta)) return;
       const input = document.querySelector('[data-meta="' + campo + '"]');
@@ -1069,15 +1069,15 @@
   $('btnCargar').addEventListener('click', cargarDatosRecientes);
 
   /* ============================================================
-     DATOS DE EJEMPLO (DEMO)
+     DATOS DE EJEMPLO (DEMO) — entorno académico
      ============================================================ */
   $('btnDemo').addEventListener('click', () => {
     const demo = {
-      proyecto: 'Pavimento rígido Av. Central',
-      cliente: 'Constructora XYZ S.A.',
-      ubicacion: 'Tramo Km 2+300 — Municipio de San Pedro',
-      material: 'Agregado fino natural (arena de río)',
-      tecnico: 'Ing. Juan Pérez',
+      tema: 'Práctica #1: Análisis Granulométrico',
+      profesor: 'Ing. María Fernández',
+      seccion: 'Sección 04 - Mesa 2',
+      estudiantes: 'Ángel Cruz - 100XXXXXX',
+      material: 'Agregado fino (Arena) de la cantera X',
       fecha: hoyISO(),
       tabla: [
         { tamiz:'1"',      abertura:25.0, retenido:0,   porcentajeRetenido:0,    porcentajeAcumulado:0,   porcentajePasa:100 },
@@ -1144,7 +1144,7 @@
         filename: 'Reporte_Granulometria.pdf',
         image: { type: 'jpeg', quality: 0.98 },
         html2canvas: {
-          scale: 2,                 // alta calidad
+          scale: 2,
           useCORS: true,
           backgroundColor: '#ffffff',
           logging: false,
@@ -1181,7 +1181,6 @@
 
     render();
 
-    // Si ya existen datos guardados, se cargan automáticamente al abrir el módulo
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw){
